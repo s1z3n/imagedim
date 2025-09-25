@@ -2,22 +2,18 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { Annotation, StyleOptions, Point } from './types';
 import { useLocalStorage } from './hooks/useLocalStorage';
 import { useHistory } from './hooks/useHistory';
-import { DEFAULT_STYLE_OPTIONS, INITIAL_DIMENSIONS_TEXT } from './constants';
+import { DEFAULT_STYLE_OPTIONS } from './constants';
 import Header from './components/Header';
 import ImageUploader from './components/ImageUploader';
 import ControlsPanel from './components/ControlsPanel';
 import CanvasArea from './components/CanvasArea';
-import { generateAnnotationsWithAI } from './services/annotationService';
 
 const App: React.FC = () => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
-  const [dimensionsText, setDimensionsText] = useState(INITIAL_DIMENSIONS_TEXT);
   const [styleOptions, setStyleOptions] = useLocalStorage<StyleOptions>('styleOptions', DEFAULT_STYLE_OPTIONS);
   const [zoom, setZoom] = useState(1);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
+  
   const { state: annotations, setState: setAnnotations, undo, redo, canUndo, canRedo } = useHistory<Annotation[]>([]);
   
   const [isDrawingMode, setIsDrawingMode] = useState(false);
@@ -58,36 +54,12 @@ const App: React.FC = () => {
         const aspectRatio = img.naturalWidth / img.naturalHeight;
         setCanvasSize({ width: containerWidth, height: containerWidth / aspectRatio });
         setAnnotations([], true);
-        setDimensionsText(INITIAL_DIMENSIONS_TEXT);
       };
       img.src = e.target?.result as string;
     };
     reader.readAsDataURL(file);
   };
-
-  const handleGenerate = async () => {
-    if (!image) {
-      setError("Please upload an image first.");
-      return;
-    }
-    if (!dimensionsText.trim()) {
-      setError("Please enter some dimensions first.");
-      return;
-    }
-    
-    setIsGenerating(true);
-    setError(null);
-    try {
-      const newAnnotations = await generateAnnotationsWithAI(image, dimensionsText, canvasSize.width, canvasSize.height);
-      setAnnotations(newAnnotations);
-    } catch (err) {
-      console.error(err);
-      setError(err instanceof Error ? err.message : 'An unknown error occurred.');
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
+  
   const handleClear = () => {
     setAnnotations([]);
     setSelectedAnnotationId(null);
@@ -124,8 +96,6 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col font-sans">
       <Header 
-        onGenerate={handleGenerate}
-        isGenerating={isGenerating}
         onClear={handleClear}
         canUndo={canUndo}
         canRedo={canRedo}
@@ -139,19 +109,6 @@ const App: React.FC = () => {
           <div className="bg-white p-4 rounded-lg shadow-md">
             <h2 className="text-lg font-semibold text-gray-700 mb-2">1. Upload Image</h2>
             <ImageUploader onImageUpload={handleImageUpload} />
-          </div>
-          
-          <div className="bg-white p-4 rounded-lg shadow-md flex-grow flex flex-col">
-            <h2 className="text-lg font-semibold text-gray-700 mb-2">2. Enter Dimensions</h2>
-            <p className="text-sm text-gray-500 mb-2">Enter one dimension per line, like "Overall Height: 34.5"</p>
-            <textarea
-                value={dimensionsText}
-                onChange={(e) => setDimensionsText(e.target.value)}
-                placeholder="Overall Height: 34.5..."
-                className="w-full flex-grow p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 text-sm font-mono"
-                disabled={!image || isGenerating}
-                rows={10}
-            />
           </div>
         </div>
         
@@ -176,7 +133,6 @@ const App: React.FC = () => {
           ) : (
             <div className="text-gray-500">Please upload an image to begin</div>
           )}
-          {error && <div className="absolute top-20 m-4 p-2 bg-red-100 text-red-700 rounded-md shadow-lg" role="alert">{error}</div>}
         </div>
 
         <ControlsPanel

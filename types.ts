@@ -13,6 +13,7 @@ export interface Annotation {
   labelPos: Point;
   ext1?: Point; // Extension line 1 start (on product)
   ext2?: Point; // Extension line 2 start (on product)
+  lineColor?: string;
 }
 
 export interface StyleOptions {

@@ -21,6 +21,22 @@ interface CanvasAreaProps {
 
 const HANDLE_RADIUS = 8;
 const HIT_THRESHOLD = 6;
+const SNAP_ANGLE_RADIANS = (15 * Math.PI) / 180; // 15 degrees in radians
+
+const snapPointToAngle = (point: Point, anchor: Point): Point => {
+    const dx = point.x - anchor.x;
+    const dy = point.y - anchor.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance === 0) return point;
+    
+    const angle = Math.atan2(dy, dx);
+    const snappedAngle = Math.round(angle / SNAP_ANGLE_RADIANS) * SNAP_ANGLE_RADIANS;
+    
+    return {
+        x: anchor.x + distance * Math.cos(snappedAngle),
+        y: anchor.y + distance * Math.sin(snappedAngle),
+    };
+};
 
 const calculateAnnotationPoints = (c1: Point, c2: Point, c3: Point) => {
     const v = { x: c2.x - c1.x, y: c2.y - c1.y };
@@ -50,8 +66,13 @@ const DrawingInstructions: React.FC<{step: number}> = ({ step }) => {
         "Move mouse to set offset, then click to place line."
     ];
     return (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-gray-900 bg-opacity-70 text-white text-sm px-4 py-2 rounded-lg pointer-events-none">
-            {messages[step]}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none z-10">
+            <div className="bg-gray-900 bg-opacity-70 text-white text-sm px-4 py-2 rounded-lg shadow-md">
+                {messages[step]}
+            </div>
+            <div className="bg-gray-800 bg-opacity-70 text-gray-200 text-xs px-3 py-1 rounded-full shadow">
+                Press <kbd className="px-1.5 py-0.5 border border-gray-600 bg-gray-900/50 rounded-md text-xs font-sans">Esc</kbd> to exit Add Dimension mode
+            </div>
         </div>
     )
 };
@@ -99,9 +120,10 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
   };
 
   const drawAnnotation = (ctx: CanvasRenderingContext2D, ann: Annotation, styles: StyleOptions, isSelected: boolean) => {
-      ctx.strokeStyle = styles.lineColor;
+      const color = ann.lineColor || styles.lineColor;
+      ctx.strokeStyle = color;
       ctx.lineWidth = styles.strokeWidth;
-      ctx.fillStyle = styles.lineColor;
+      ctx.fillStyle = color;
       ctx.beginPath();
       ctx.moveTo(ann.p1.x, ann.p1.y);
       ctx.lineTo(ann.p2.x, ann.p2.y);
@@ -201,6 +223,12 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      // Prevent deletion if the user is typing in an input, textarea, or contenteditable element
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedAnnotationId) {
         deleteAnnotation(selectedAnnotationId);
       }
@@ -255,7 +283,13 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
   };
   
   const handleDrawingMouseDown = (e: React.MouseEvent) => {
-    const pos = getMousePos(e);
+    let pos = getMousePos(e);
+
+    if (drawingState.step === 1 && drawingState.points.length > 0 && e.shiftKey) {
+        const anchor = drawingState.points[0];
+        pos = snapPointToAngle(pos, anchor);
+    }
+
     const newPoints = [...drawingState.points, pos];
     
     if (newPoints.length === 3) {
@@ -274,13 +308,21 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    const pos = getMousePos(e);
-    setMousePos(pos);
+    let rawMousePos = getMousePos(e);
+    let effectiveMousePos = rawMousePos;
+
+    // Update the preview position, snapping if necessary when drawing
+    if (e.shiftKey && isDrawingMode && drawingState.step === 1 && drawingState.points.length > 0) {
+        const anchor = drawingState.points[0];
+        effectiveMousePos = snapPointToAngle(rawMousePos, anchor);
+    }
+    setMousePos(effectiveMousePos);
+
     if (!dragging) return;
     
     const { initialAnnotation, initialMousePos, part } = dragging;
-    const dx = pos.x - initialMousePos.x;
-    const dy = pos.y - initialMousePos.y;
+    const dx = rawMousePos.x - initialMousePos.x;
+    const dy = rawMousePos.y - initialMousePos.y;
 
     const updatedAnn = { ...initialAnnotation };
 
@@ -292,14 +334,26 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
             if (updatedAnn.ext1) updatedAnn.ext1 = { x: initialAnnotation.ext1!.x + dx, y: initialAnnotation.ext1!.y + dy };
             if (updatedAnn.ext2) updatedAnn.ext2 = { x: initialAnnotation.ext2!.x + dx, y: initialAnnotation.ext2!.y + dy };
             break;
-        case 'p1':
-            updatedAnn.p1 = { x: initialAnnotation.p1.x + dx, y: initialAnnotation.p1.y + dy };
+        case 'p1': {
+            let newP1 = { x: initialAnnotation.p1.x + dx, y: initialAnnotation.p1.y + dy };
+            if (e.shiftKey) {
+                const anchor = initialAnnotation.p2;
+                newP1 = snapPointToAngle(newP1, anchor);
+            }
+            updatedAnn.p1 = newP1;
             updatedAnn.labelPos = { x: (updatedAnn.p1.x + updatedAnn.p2.x) / 2, y: (updatedAnn.p1.y + updatedAnn.p2.y) / 2 };
             break;
-        case 'p2':
-            updatedAnn.p2 = { x: initialAnnotation.p2.x + dx, y: initialAnnotation.p2.y + dy };
+        }
+        case 'p2': {
+            let newP2 = { x: initialAnnotation.p2.x + dx, y: initialAnnotation.p2.y + dy };
+            if (e.shiftKey) {
+                const anchor = initialAnnotation.p1;
+                newP2 = snapPointToAngle(newP2, anchor);
+            }
+            updatedAnn.p2 = newP2;
             updatedAnn.labelPos = { x: (updatedAnn.p1.x + updatedAnn.p2.x) / 2, y: (updatedAnn.p1.y + updatedAnn.p2.y) / 2 };
             break;
+        }
         case 'label':
             updatedAnn.labelPos = { x: initialAnnotation.labelPos.x + dx, y: initialAnnotation.labelPos.y + dy };
             break;
