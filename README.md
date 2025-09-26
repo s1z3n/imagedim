@@ -18,6 +18,14 @@ View your app in AI Studio: https://ai.studio/apps/drive/1raorT9ncyeb9b9omWOGyc8
 3. Run the app:
    `npm run dev`
 
+## Build for production
+
+Run the Vite production build locally to validate the GitHub Pages configuration:
+
+```bash
+npm run build
+```
+
 ## Continuous deployment via GitHub Actions
 
 Pushing to `main` automatically builds the app and triggers a redeploy in Google AI Studio.
