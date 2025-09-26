@@ -16,7 +16,7 @@ interface CanvasAreaProps {
   drawingState: { step: number; points: Point[] };
   setDrawingState: React.Dispatch<React.SetStateAction<{ step: number; points: Point[] }>>;
   addAnnotation: (annotation: Annotation) => void;
-  onToggleDrawingMode: () => void;
+  onToggleDrawingMode: (force?: boolean) => void;
 }
 
 const HANDLE_RADIUS = 8;
@@ -178,7 +178,7 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
         deleteAnnotation(selectedAnnotationId);
       }
       if (e.key === 'Escape' && isDrawingMode) {
-        onToggleDrawingMode();
+        onToggleDrawingMode(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
