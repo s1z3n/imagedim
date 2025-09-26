@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Annotation, StyleOptions, Point, DraggablePart } from '../types';
-import { drawAnnotation } from '../utils/imageUtils';
+import { drawAnnotation, getLabelBoundingBox } from '../utils/imageUtils';
 
 interface CanvasAreaProps {
   image: HTMLImageElement;
@@ -17,6 +17,8 @@ interface CanvasAreaProps {
   setDrawingState: React.Dispatch<React.SetStateAction<{ step: number; points: Point[] }>>;
   addAnnotation: (annotation: Annotation) => void;
   onToggleDrawingMode: (force?: boolean) => void;
+  editingAnnotationId: string | null;
+  setEditingAnnotationId: (id: string | null) => void;
 }
 
 const HANDLE_RADIUS = 8;
@@ -79,12 +81,17 @@ const DrawingInstructions: React.FC<{step: number}> = ({ step }) => {
 
 const CanvasArea: React.FC<CanvasAreaProps> = ({
   image, annotations, styleOptions, updateAnnotation, deleteAnnotation,
-  selectedAnnotationId, setSelectedAnnotationId, zoom, canvasSize,
-  isDrawingMode, drawingState, setDrawingState, addAnnotation, onToggleDrawingMode
+  selectedAnnotationId, setSelectedAnnotationId, zoom, canvasSize, isDrawingMode, 
+  drawingState, setDrawingState, addAnnotation, onToggleDrawingMode,
+  editingAnnotationId, setEditingAnnotationId
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const inlineInputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState<{ part: DraggablePart; id: string; initialMousePos: Point, initialAnnotation: Annotation } | null>(null);
   const [mousePos, setMousePos] = useState<Point | null>(null);
+  const [inlineEditText, setInlineEditText] = useState('');
+
+  const editingAnnotation = annotations.find(a => a.id === editingAnnotationId);
 
   const getMousePos = (e: React.MouseEvent): Point => {
     const canvas = canvasRef.current;
@@ -109,7 +116,7 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
     ctx.drawImage(image, 0, 0, canvasSize.width, canvasSize.height);
 
     annotations.forEach(ann => {
-      drawAnnotation(ctx, ann, styleOptions);
+      drawAnnotation(ctx, ann, styleOptions, ann.id === editingAnnotationId);
       if (ann.id === selectedAnnotationId) {
         drawHandle(ctx, ann.p1, 'point');
         drawHandle(ctx, ann.p2, 'point');
@@ -169,6 +176,10 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
+      // Don't interfere with inline editing
+      if (target.id === 'inline-annotation-input') {
+          return;
+      }
       // Prevent deletion if the user is typing in an input, textarea, or contenteditable element
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
         return;
@@ -185,7 +196,19 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedAnnotationId, deleteAnnotation, isDrawingMode, onToggleDrawingMode]);
 
-  useEffect(draw, [image, annotations, styleOptions, zoom, selectedAnnotationId, canvasSize, isDrawingMode, drawingState, mousePos]);
+  useEffect(() => {
+    if (editingAnnotationId && inlineInputRef.current) {
+      const ann = annotations.find(a => a.id === editingAnnotationId);
+      if (ann) {
+        setInlineEditText(ann.valueText);
+        inlineInputRef.current.style.fontSize = `${styleOptions.fontSize * zoom}px`;
+        inlineInputRef.current.focus();
+        inlineInputRef.current.select();
+      }
+    }
+  }, [editingAnnotationId, annotations, zoom, styleOptions.fontSize]);
+
+  useEffect(draw, [image, annotations, styleOptions, zoom, selectedAnnotationId, canvasSize, isDrawingMode, drawingState, mousePos, editingAnnotationId]);
 
   const hittest = (pos: Point): { part: DraggablePart; id: string } | null => {
     for (let i = annotations.length - 1; i >= 0; i--) {
@@ -213,6 +236,32 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
     return null;
   };
 
+  const labelHitTest = (pos: Point): string | null => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return null;
+
+    // Check in reverse order so top-most annotations are checked first
+    for (let i = annotations.length - 1; i >= 0; i--) {
+        const ann = annotations[i];
+        if (!styleOptions.showLabelBox) continue; // Only hit-test if the box is visible
+        
+        // Temporarily apply font settings to get accurate metrics for this annotation
+        ctx.font = `${styleOptions.fontSize}px ${styleOptions.fontFamily}`;
+        
+        const box = getLabelBoundingBox(ctx, ann, styleOptions);
+        if (
+            pos.x >= box.x &&
+            pos.x <= box.x + box.width &&
+            pos.y >= box.y &&
+            pos.y <= box.y + box.height
+        ) {
+            return ann.id;
+        }
+    }
+    return null;
+  };
+
   const handleSelectMouseDown = (e: React.MouseEvent) => {
     const pos = getMousePos(e);
     const hit = hittest(pos);
@@ -222,6 +271,10 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
         setSelectedAnnotationId(hit.id);
         setDragging({ part: hit.part, id: hit.id, initialMousePos: pos, initialAnnotation: ann });
       }
+    } else if (editingAnnotationId) {
+        // If clicking outside while editing, commit the edit
+        commitInlineEdit();
+        setSelectedAnnotationId(null);
     } else {
       setSelectedAnnotationId(null);
     }
@@ -246,6 +299,8 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
           ext1: c1, ext2: c2, p1, p2, labelPos,
       };
       addAnnotation(newAnnotation);
+      setSelectedAnnotationId(newAnnotation.id);
+      setEditingAnnotationId(newAnnotation.id);
       setDrawingState({ step: 0, points: [] });
     } else {
       setDrawingState({ step: newPoints.length, points: newPoints });
@@ -309,6 +364,39 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
 
   const handleMouseUp = () => setDragging(null);
   
+  const handleDoubleClick = (e: React.MouseEvent) => {
+      if (isDrawingMode) return;
+      const pos = getMousePos(e);
+      const hitId = labelHitTest(pos);
+      if (hitId) {
+          setSelectedAnnotationId(hitId);
+          setEditingAnnotationId(hitId);
+      }
+  };
+
+  const commitInlineEdit = () => {
+    if (!editingAnnotationId) return;
+    const ann = annotations.find(a => a.id === editingAnnotationId);
+    if (ann && ann.valueText !== inlineEditText) {
+        updateAnnotation({ ...ann, valueText: inlineEditText });
+    }
+    setEditingAnnotationId(null);
+  };
+
+  const cancelInlineEdit = () => {
+      setEditingAnnotationId(null);
+  };
+
+  const handleInlineInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitInlineEdit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cancelInlineEdit();
+    }
+  };
+  
   return (
     <div className='relative w-full h-full flex items-center justify-center'>
        <canvas
@@ -320,8 +408,29 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={() => { handleMouseUp(); setMousePos(null); }}
+        onDoubleClick={handleDoubleClick}
         className="bg-white shadow-lg"
       />
+      {editingAnnotation && (
+        <input
+          ref={inlineInputRef}
+          id="inline-annotation-input"
+          type="text"
+          value={inlineEditText}
+          onChange={e => setInlineEditText(e.target.value)}
+          onBlur={commitInlineEdit}
+          onKeyDown={handleInlineInputKeyDown}
+          className="absolute p-1 border border-indigo-500 rounded-sm shadow-md bg-white text-black text-center"
+          style={{
+            top: `${editingAnnotation.labelPos.y * zoom}px`,
+            left: `${editingAnnotation.labelPos.x * zoom}px`,
+            transform: 'translate(-50%, -50%)',
+            width: `${(inlineEditText.length + 2) * (styleOptions.fontSize * 0.6) * zoom}px`,
+            minWidth: '50px',
+            fontFamily: styleOptions.fontFamily,
+          }}
+        />
+      )}
       {isDrawingMode && <DrawingInstructions step={drawingState.step} />}
     </div>
   );

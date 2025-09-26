@@ -12,7 +12,7 @@ const drawTick = (ctx: CanvasRenderingContext2D, from: Point, to: Point, size: n
     ctx.restore();
 };
 
-const drawLabel = (ctx: CanvasRenderingContext2D, ann: Annotation, styles: StyleOptions) => {
+export const getLabelBoundingBox = (ctx: CanvasRenderingContext2D, ann: Annotation, styles: StyleOptions): { x: number, y: number, width: number, height: number } => {
     ctx.font = `${styles.fontSize}px ${styles.fontFamily}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -21,10 +21,28 @@ const drawLabel = (ctx: CanvasRenderingContext2D, ann: Annotation, styles: Style
     const textMetrics = ctx.measureText(textToDisplay);
     const boxWidth = textMetrics.width + styles.labelBoxPadding * 2;
     const boxHeight = styles.fontSize + styles.labelBoxPadding * 2;
-    const labelX = ann.labelPos.x;
-    const labelY = ann.labelPos.y;
+    return {
+        x: ann.labelPos.x - boxWidth / 2,
+        y: ann.labelPos.y - boxHeight / 2,
+        width: boxWidth,
+        height: boxHeight,
+    };
+};
+
+const drawLabel = (ctx: CanvasRenderingContext2D, ann: Annotation, styles: StyleOptions) => {
+    ctx.font = `${styles.fontSize}px ${styles.fontFamily}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    const textToDisplay = `${ann.valueText}"`;
+    let labelX = ann.labelPos.x;
+    let labelY = ann.labelPos.y;
 
     if (styles.showLabelBox) {
+        const textMetrics = ctx.measureText(textToDisplay);
+        const boxWidth = textMetrics.width + styles.labelBoxPadding * 2;
+        const boxHeight = styles.fontSize + styles.labelBoxPadding * 2;
+
         ctx.fillStyle = styles.labelBoxColor;
         ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
         ctx.shadowBlur = 4;
@@ -33,6 +51,22 @@ const drawLabel = (ctx: CanvasRenderingContext2D, ann: Annotation, styles: Style
         ctx.roundRect(labelX - boxWidth / 2, labelY - boxHeight / 2, boxWidth, boxHeight, 8);
         ctx.fill();
         ctx.shadowColor = 'transparent';
+    } else {
+        // Offset the label position when there's no box
+        const dx = ann.p2.x - ann.p1.x;
+        const dy = ann.p2.y - ann.p1.y;
+        
+        const length = Math.hypot(dx, dy);
+        if (length > 1e-6) {
+            const nx = -dy / length; // normalized normal vector
+            const ny = dx / length;
+            
+            // Offset by half font size + a small gap
+            const offset = styles.fontSize * 0.75;
+            
+            labelX += nx * offset;
+            labelY += ny * offset;
+        }
     }
 
     ctx.fillStyle = styles.textColor;
@@ -40,7 +74,7 @@ const drawLabel = (ctx: CanvasRenderingContext2D, ann: Annotation, styles: Style
 };
 
 
-export const drawAnnotation = (ctx: CanvasRenderingContext2D, ann: Annotation, styles: StyleOptions) => {
+export const drawAnnotation = (ctx: CanvasRenderingContext2D, ann: Annotation, styles: StyleOptions, isEditing: boolean = false) => {
     const color = ann.lineColor || styles.lineColor;
     ctx.strokeStyle = color;
     ctx.lineWidth = styles.strokeWidth;
@@ -52,5 +86,8 @@ export const drawAnnotation = (ctx: CanvasRenderingContext2D, ann: Annotation, s
 
     drawTick(ctx, ann.p1, ann.p2, styles.arrowheadSize);
     drawTick(ctx, ann.p2, ann.p1, styles.arrowheadSize);
-    drawLabel(ctx, ann, styles);
+    
+    if (!isEditing) {
+      drawLabel(ctx, ann, styles);
+    }
 }
