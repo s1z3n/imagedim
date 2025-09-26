@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -10,6 +9,25 @@
     <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
     <style>
       body { font-family: 'Inter', sans-serif; }
+      /* Custom slider thumb style to match theme color */
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        margin-top: -4px; /* Vertically center 16px thumb on 8px track (h-2) */
+        background-color: #4F46E5; /* Tailwind's indigo-600 */
+        height: 16px;
+        width: 16px;
+        border-radius: 9999px;
+        cursor: pointer;
+      }
+      input[type="range"]::-moz-range-thumb {
+        background-color: #4F46E5; /* Tailwind's indigo-600 */
+        height: 16px;
+        width: 16px;
+        border-radius: 9999px;
+        cursor: pointer;
+        border: none;
+      }
     </style>
 <script type="importmap">
 {
@@ -22,7 +40,6 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
   <body class="bg-gray-100">
     <div id="root"></div>

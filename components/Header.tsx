@@ -21,8 +21,15 @@ const Header: React.FC<HeaderProps> = ({
         <button onClick={onRedo} disabled={!canRedo || isDrawingMode} className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed">Redo</button>
         <button 
           onClick={onToggleDrawingMode}
-          className={`px-4 py-2 text-sm font-medium border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 ${isDrawingMode ? 'bg-indigo-100 text-indigo-700 border-indigo-300' : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'}`}
+          className={`inline-flex items-center px-4 py-2 text-sm font-medium border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 ${
+            isDrawingMode 
+              ? 'bg-indigo-100 text-indigo-700 border-indigo-300' 
+              : 'bg-indigo-600 text-white border-transparent hover:bg-indigo-700'
+          }`}
         >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M3 3a1 1 0 000 2v10a1 1 0 001 1h12a1 1 0 100-2H5V5h10a1 1 0 100-2H4a1 1 0 00-1 1zm3 2a1 1 0 011-1h1a1 1 0 110 2H7a1 1 0 01-1-1zm3 0a1 1 0 011-1h3a1 1 0 110 2h-3a1 1 0 01-1-1zm5 0a1 1 0 011-1h1a1 1 0 110 2h-1a1 1 0 01-1-1z" clipRule="evenodd" />
+          </svg>
           Add Dimension
         </button>
         <button onClick={onClear} disabled={isDrawingMode} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50">

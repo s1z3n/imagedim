@@ -1,5 +1,4 @@
-
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Annotation, StyleOptions } from '../types';
 
 interface ControlsPanelProps {
@@ -73,6 +72,7 @@ const ColorSelector: React.FC<{label: string, currentColor: string, onColorChang
 };
 
 const ControlsPanel: React.FC<ControlsPanelProps> = ({ styleOptions, setStyleOptions, zoom, setZoom, selectedAnnotation, updateAnnotation, onDownload, isImageLoaded }) => {
+  const textInputRef = useRef<HTMLInputElement>(null);
 
   const handleStyleChange = <K extends keyof StyleOptions,>(key: K, value: StyleOptions[K]) => {
     setStyleOptions(prev => ({ ...prev, [key]: value }));
@@ -105,11 +105,13 @@ const ControlsPanel: React.FC<ControlsPanelProps> = ({ styleOptions, setStyleOpt
             <h2 className="text-lg font-semibold text-gray-800 border-b pb-2 mb-4">Edit Annotation</h2>
             <div className='space-y-4'>
               <div>
-                  <label className="block text-sm font-medium text-gray-700">Dimension Text</label>
+                  <label htmlFor="annotation-text" className="block text-sm font-medium text-gray-700">Dimension Text</label>
                   <input
+                      ref={textInputRef}
+                      id="annotation-text"
                       type="text"
                       value={selectedAnnotation.valueText}
-                      onChange={(e) => updateAnnotation({ ...selectedAnnotation, valueText: e.target.value, labelPos: { ...selectedAnnotation.labelPos } })}
+                      onChange={(e) => updateAnnotation({ ...selectedAnnotation, valueText: e.target.value })}
                       className="mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                   />
               </div>

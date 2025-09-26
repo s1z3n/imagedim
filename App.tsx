@@ -41,15 +41,16 @@ const Instructions: React.FC = () => (
     <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
       <li>Upload your product image using the panel above.</li>
       <li>Click <span className="font-semibold text-indigo-600">"Add Dimension"</span> in the header to enter drawing mode.</li>
-      <li>Click three times on the image to define a dimension line:
+      <li>Click three times to define a dimension:
           <ul className="list-disc list-inside ml-4 mt-1">
               <li>First click: Start point.</li>
               <li>Second click: End point.</li>
               <li>Third click: Set distance from object.</li>
+              <li className="font-semibold text-indigo-600">An input will appear on the line to enter the value.</li>
           </ul>
       </li>
       <li>Use the controls on the right to adjust styles and zoom.</li>
-      <li>Click on any annotation to select, move, or resize it.</li>
+      <li>Click on any annotation to select, move, or resize it. Double-click a label to edit it.</li>
       <li>Click <span className="font-semibold text-gray-800">"Download JPG"</span> when you're finished.</li>
     </ol>
   </div>
@@ -61,6 +62,7 @@ const App: React.FC = () => {
   const [styleOptions, setStyleOptions] = useLocalStorage<StyleOptions>('styleOptions', DEFAULT_STYLE_OPTIONS);
   const [zoom, setZoom] = useState(1);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
+  const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
   
   const { state: annotations, setState: setAnnotations, undo, redo, canUndo, canRedo } = useHistory<Annotation[]>([]);
   
@@ -75,6 +77,7 @@ const App: React.FC = () => {
       const isNowDrawing = force !== undefined ? force : !prev;
       if (isNowDrawing) {
         setSelectedAnnotationId(null);
+        setEditingAnnotationId(null);
       }
       setDrawingState({ step: 0, points: [] }); // Reset on every toggle/change
       return isNowDrawing;
@@ -124,6 +127,7 @@ const App: React.FC = () => {
   const handleClear = () => {
     setAnnotations([]);
     setSelectedAnnotationId(null);
+    setEditingAnnotationId(null);
   };
 
   const addAnnotation = useCallback((annotation: Annotation) => {
@@ -138,6 +142,9 @@ const App: React.FC = () => {
     setAnnotations(annotations.filter(a => a.id !== id));
     if (selectedAnnotationId === id) {
       setSelectedAnnotationId(null);
+    }
+    if (editingAnnotationId === id) {
+      setEditingAnnotationId(null);
     }
   };
 
@@ -224,6 +231,8 @@ const App: React.FC = () => {
               setDrawingState={setDrawingState}
               addAnnotation={addAnnotation}
               onToggleDrawingMode={toggleDrawingMode}
+              editingAnnotationId={editingAnnotationId}
+              setEditingAnnotationId={setEditingAnnotationId}
             />
           ) : (
             <div className="text-gray-500">Please upload an image to begin</div>
