@@ -20,6 +20,10 @@ This contains everything you need to run your app locally and deploy it to GitHu
    npm run dev
    ```
 
+## Deploy to GitHub Pages
+
+The Vite configuration already sets `base: '/imagedim/'` so the app serves correctly from `https://<username>.github.io/imagedim/`.
+
 ## Build for production
 
 Verify the production build before deploying:
@@ -28,9 +32,7 @@ Verify the production build before deploying:
 npm run build
 ```
 
-## Deploy to GitHub Pages
-
-The Vite configuration already sets `base: '/imagedim/'` so the app serves correctly from `https://<username>.github.io/imagedim/`.
+## Continuous deployment via GitHub Actions
 
 1. In GitHub, open **Settings → Pages** and select **GitHub Actions** as the deployment source.
 2. Push to the `main` branch. The [`Deploy Vite app to GitHub Pages`](.github/workflows/pages.yml) workflow will:
