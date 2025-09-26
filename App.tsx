@@ -8,6 +8,26 @@ import ImageUploader from './components/ImageUploader';
 import ControlsPanel from './components/ControlsPanel';
 import CanvasArea from './components/CanvasArea';
 
+const Instructions: React.FC = () => (
+  <div className="bg-white p-4 rounded-lg shadow-md">
+    <h2 className="text-lg font-semibold text-gray-700 mb-2">How to Use</h2>
+    <ol className="list-decimal list-inside space-y-2 text-sm text-gray-600">
+      <li>Upload your product image using the panel above.</li>
+      <li>Click <span className="font-semibold text-indigo-600">"Add Dimension"</span> in the header to enter drawing mode.</li>
+      <li>Click three times on the image to define a dimension line:
+          <ul className="list-disc list-inside ml-4 mt-1">
+              <li>First click: Start point.</li>
+              <li>Second click: End point.</li>
+              <li>Third click: Set distance from object.</li>
+          </ul>
+      </li>
+      <li>Use the controls on the right to adjust styles and zoom.</li>
+      <li>Click on any annotation to select, move, or resize it.</li>
+      <li>Click <span className="font-semibold text-gray-800">"Download JPG"</span> when you're finished.</li>
+    </ol>
+  </div>
+);
+
 const App: React.FC = () => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [styleOptions, setStyleOptions] = useLocalStorage<StyleOptions>('styleOptions', DEFAULT_STYLE_OPTIONS);
@@ -110,6 +130,7 @@ const App: React.FC = () => {
             <h2 className="text-lg font-semibold text-gray-700 mb-2">1. Upload Image</h2>
             <ImageUploader onImageUpload={handleImageUpload} />
           </div>
+          <Instructions />
         </div>
         
         <div className="flex-grow flex flex-col items-center justify-center bg-gray-200 rounded-lg shadow-inner overflow-hidden" ref={canvasContainerRef}>

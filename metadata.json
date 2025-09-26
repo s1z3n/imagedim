@@ -1,5 +1,5 @@
 {
   "name": "Image Dimension Annotator",
-  "description": "An application to upload a product image, paste a list of dimensions, and automatically generate clean annotation lines and labels. Users can adjust the annotations and export the final image as a JPG.",
+  "description": "An application to upload a product image and manually add, adjust, and style dimension annotations. Users can export the final image as a JPG.",
   "requestFramePermissions": []
 }
