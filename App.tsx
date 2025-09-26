@@ -30,6 +30,7 @@ const Instructions: React.FC = () => (
 
 const App: React.FC = () => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [originalFileName, setOriginalFileName] = useState<string | null>(null);
   const [styleOptions, setStyleOptions] = useLocalStorage<StyleOptions>('styleOptions', DEFAULT_STYLE_OPTIONS);
   const [zoom, setZoom] = useState(1);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
@@ -70,6 +71,7 @@ const App: React.FC = () => {
       const img = new Image();
       img.onload = () => {
         setImage(img);
+        setOriginalFileName(file.name);
         const containerWidth = canvasContainerRef.current?.clientWidth || 800;
         const aspectRatio = img.naturalWidth / img.naturalHeight;
         setCanvasSize({ width: containerWidth, height: containerWidth / aspectRatio });
@@ -150,6 +152,7 @@ const App: React.FC = () => {
               setDrawingState={setDrawingState}
               addAnnotation={addAnnotation}
               onToggleDrawingMode={toggleDrawingMode}
+              originalFileName={originalFileName}
             />
           ) : (
             <div className="text-gray-500">Please upload an image to begin</div>

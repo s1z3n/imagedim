@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, useState } from 'react';
 import { Annotation, StyleOptions, Point, DraggablePart } from '../types';
 
@@ -17,6 +16,7 @@ interface CanvasAreaProps {
   setDrawingState: React.Dispatch<React.SetStateAction<{ step: number; points: Point[] }>>;
   addAnnotation: (annotation: Annotation) => void;
   onToggleDrawingMode: () => void;
+  originalFileName: string | null;
 }
 
 const HANDLE_RADIUS = 8;
@@ -80,7 +80,7 @@ const DrawingInstructions: React.FC<{step: number}> = ({ step }) => {
 const CanvasArea: React.FC<CanvasAreaProps> = ({
   image, annotations, styleOptions, updateAnnotation, deleteAnnotation,
   selectedAnnotationId, setSelectedAnnotationId, zoom, canvasSize,
-  isDrawingMode, drawingState, setDrawingState, addAnnotation, onToggleDrawingMode
+  isDrawingMode, drawingState, setDrawingState, addAnnotation, onToggleDrawingMode, originalFileName
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dragging, setDragging] = useState<{ part: DraggablePart; id: string; initialMousePos: Point, initialAnnotation: Annotation } | null>(null);
@@ -395,7 +395,13 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
     });
 
     const link = document.createElement('a');
-    link.download = `annotated-image.jpg`;
+    let baseName = 'annotated-image';
+    if (originalFileName) {
+        const lastDotIndex = originalFileName.lastIndexOf('.');
+        baseName = lastDotIndex === -1 ? originalFileName : originalFileName.substring(0, lastDotIndex);
+    }
+    const qualitySuffix = Math.round(quality * 100);
+    link.download = `${baseName}_${qualitySuffix}.jpg`;
     link.href = tempCanvas.toDataURL('image/jpeg', quality);
     link.click();
   };
@@ -415,7 +421,7 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
       />
       {isDrawingMode && <DrawingInstructions step={drawingState.step} />}
       <div className="absolute bottom-2 right-2 flex space-x-2">
-         <button onClick={() => handleDownload(1.0)} className="px-3 py-1.5 text-xs font-medium text-white bg-gray-700 border border-transparent rounded-md shadow-sm hover:bg-gray-800">Download JPG</button>
+         <button onClick={() => handleDownload(1.0)} className="px-3 py-1.5 text-xs font-medium text-white bg-gray-700 border border-transparent rounded-md shadow-sm hover:bg-gray-800">Download JPG (100%)</button>
       </div>
     </div>
   );
