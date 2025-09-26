@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef } from 'react';
 import { Annotation, StyleOptions } from '../types';
 
 interface ControlsPanelProps {
