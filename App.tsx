@@ -70,6 +70,17 @@ const App: React.FC = () => {
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
+  const toggleDrawingMode = useCallback((force?: boolean) => {
+    setIsDrawingMode(prev => {
+      const isNowDrawing = force !== undefined ? force : !prev;
+      if (isNowDrawing) {
+        setSelectedAnnotationId(null);
+      }
+      setDrawingState({ step: 0, points: [] }); // Reset on every toggle/change
+      return isNowDrawing;
+    });
+  }, []);
+
   useEffect(() => {
     const resizeObserver = new ResizeObserver(entries => {
       if (entries[0] && canvasContainerRef.current) {
@@ -103,6 +114,7 @@ const App: React.FC = () => {
         setOriginalFileName(file.name);
         setAnnotations([], true);
         setZoom(1); // Reset zoom to 100% (which is now fit-to-screen)
+        toggleDrawingMode(true);
       };
       img.src = e.target?.result as string;
     };
@@ -113,17 +125,6 @@ const App: React.FC = () => {
     setAnnotations([]);
     setSelectedAnnotationId(null);
   };
-
-  const toggleDrawingMode = useCallback(() => {
-    setIsDrawingMode(prev => {
-        const isNowDrawing = !prev;
-        if (isNowDrawing) {
-            setSelectedAnnotationId(null);
-        }
-        setDrawingState({ step: 0, points: [] }); // Reset on every toggle
-        return isNowDrawing;
-    });
-  }, []);
 
   const addAnnotation = useCallback((annotation: Annotation) => {
     setAnnotations(prev => [...prev, annotation]);
@@ -195,7 +196,7 @@ const App: React.FC = () => {
         onUndo={undo}
         onRedo={redo}
         isDrawingMode={isDrawingMode}
-        onToggleDrawingMode={toggleDrawingMode}
+        onToggleDrawingMode={() => toggleDrawingMode()}
       />
       <main className="flex-grow flex p-4 gap-4 overflow-hidden">
         <div className="flex flex-col w-1/4 max-w-sm space-y-4">
