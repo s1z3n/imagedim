@@ -7,6 +7,33 @@ import Header from './components/Header';
 import ImageUploader from './components/ImageUploader';
 import ControlsPanel from './components/ControlsPanel';
 import CanvasArea from './components/CanvasArea';
+import { drawAnnotation as drawAnnotationOnCanvas } from './utils/imageUtils';
+
+const calculateFitToScreenSize = (img: HTMLImageElement, container: HTMLElement): { width: number; height: number } => {
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+
+    if (containerWidth === 0 || containerHeight === 0 || !img.naturalWidth || !img.naturalHeight) {
+        return { width: 0, height: 0 };
+    }
+
+    const imageAspectRatio = img.naturalWidth / img.naturalHeight;
+    const containerAspectRatio = containerWidth / containerHeight;
+
+    let finalWidth: number, finalHeight: number;
+
+    if (imageAspectRatio > containerAspectRatio) {
+        // Image is wider than container, so fit to width
+        finalWidth = containerWidth;
+        finalHeight = containerWidth / imageAspectRatio;
+    } else {
+        // Image is taller than container, so fit to height
+        finalHeight = containerHeight;
+        finalWidth = containerHeight * imageAspectRatio;
+    }
+
+    return { width: finalWidth, height: finalHeight };
+};
 
 const Instructions: React.FC = () => (
   <div className="bg-white p-4 rounded-lg shadow-md">
@@ -45,13 +72,15 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const resizeObserver = new ResizeObserver(entries => {
-      if (entries[0]) {
-        const { width } = entries[0].contentRect;
+      if (entries[0] && canvasContainerRef.current) {
+        const container = canvasContainerRef.current;
         if(image) {
-          const aspectRatio = image.naturalWidth / image.naturalHeight;
-          setCanvasSize({ width, height: width / aspectRatio });
+          const newSize = calculateFitToScreenSize(image, container);
+          if (newSize.width > 0) {
+            setCanvasSize(newSize);
+          }
         } else {
-            const height = entries[0].contentRect.height;
+            const { width, height } = entries[0].contentRect;
             setCanvasSize({ width, height });
         }
       }
@@ -72,10 +101,8 @@ const App: React.FC = () => {
       img.onload = () => {
         setImage(img);
         setOriginalFileName(file.name);
-        const containerWidth = canvasContainerRef.current?.clientWidth || 800;
-        const aspectRatio = img.naturalWidth / img.naturalHeight;
-        setCanvasSize({ width: containerWidth, height: containerWidth / aspectRatio });
         setAnnotations([], true);
+        setZoom(1); // Reset zoom to 100% (which is now fit-to-screen)
       };
       img.src = e.target?.result as string;
     };
@@ -111,6 +138,50 @@ const App: React.FC = () => {
     if (selectedAnnotationId === id) {
       setSelectedAnnotationId(null);
     }
+  };
+
+  const handleDownload = async (quality: number = 1.0) => {
+    if (!image) return;
+
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
+
+    tempCanvas.width = image.naturalWidth;
+    tempCanvas.height = image.naturalHeight;
+    const scale = image.naturalWidth / canvasSize.width;
+    tempCtx.drawImage(image, 0, 0);
+    
+    const scaledStyles = {
+        ...styleOptions,
+        strokeWidth: styleOptions.strokeWidth * scale,
+        arrowheadSize: styleOptions.arrowheadSize * scale,
+        fontSize: styleOptions.fontSize * scale,
+        labelBoxPadding: styleOptions.labelBoxPadding * scale,
+    };
+
+    annotations.forEach(ann => {
+        const scaledAnn = {
+            ...ann,
+            p1: { x: ann.p1.x * scale, y: ann.p1.y * scale },
+            p2: { x: ann.p2.x * scale, y: ann.p2.y * scale },
+            labelPos: { x: ann.labelPos.x * scale, y: ann.labelPos.y * scale },
+            ext1: ann.ext1 ? { x: ann.ext1.x * scale, y: ann.ext1.y * scale } : undefined,
+            ext2: ann.ext2 ? { x: ann.ext2.x * scale, y: ann.ext2.y * scale } : undefined,
+        };
+        drawAnnotationOnCanvas(tempCtx, scaledAnn, scaledStyles);
+    });
+
+    const link = document.createElement('a');
+    let baseName = 'annotated-image';
+    if (originalFileName) {
+        const lastDotIndex = originalFileName.lastIndexOf('.');
+        baseName = lastDotIndex === -1 ? originalFileName : originalFileName.substring(0, lastDotIndex);
+    }
+    const qualitySuffix = Math.round(quality * 100);
+    link.download = `${baseName}_${qualitySuffix}.jpg`;
+    link.href = tempCanvas.toDataURL('image/jpeg', quality);
+    link.click();
   };
 
   const selectedAnnotation = annotations.find(a => a.id === selectedAnnotationId) || null;
@@ -152,7 +223,6 @@ const App: React.FC = () => {
               setDrawingState={setDrawingState}
               addAnnotation={addAnnotation}
               onToggleDrawingMode={toggleDrawingMode}
-              originalFileName={originalFileName}
             />
           ) : (
             <div className="text-gray-500">Please upload an image to begin</div>
@@ -166,6 +236,8 @@ const App: React.FC = () => {
           setZoom={setZoom}
           selectedAnnotation={selectedAnnotation}
           updateAnnotation={updateAnnotation}
+          onDownload={handleDownload}
+          isImageLoaded={!!image}
         />
       </main>
     </div>

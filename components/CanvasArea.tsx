@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Annotation, StyleOptions, Point, DraggablePart } from '../types';
+import { drawAnnotation } from '../utils/imageUtils';
 
 interface CanvasAreaProps {
   image: HTMLImageElement;
@@ -16,7 +17,6 @@ interface CanvasAreaProps {
   setDrawingState: React.Dispatch<React.SetStateAction<{ step: number; points: Point[] }>>;
   addAnnotation: (annotation: Annotation) => void;
   onToggleDrawingMode: () => void;
-  originalFileName: string | null;
 }
 
 const HANDLE_RADIUS = 8;
@@ -80,7 +80,7 @@ const DrawingInstructions: React.FC<{step: number}> = ({ step }) => {
 const CanvasArea: React.FC<CanvasAreaProps> = ({
   image, annotations, styleOptions, updateAnnotation, deleteAnnotation,
   selectedAnnotationId, setSelectedAnnotationId, zoom, canvasSize,
-  isDrawingMode, drawingState, setDrawingState, addAnnotation, onToggleDrawingMode, originalFileName
+  isDrawingMode, drawingState, setDrawingState, addAnnotation, onToggleDrawingMode
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [dragging, setDragging] = useState<{ part: DraggablePart; id: string; initialMousePos: Point, initialAnnotation: Annotation } | null>(null);
@@ -109,7 +109,12 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
     ctx.drawImage(image, 0, 0, canvasSize.width, canvasSize.height);
 
     annotations.forEach(ann => {
-      drawAnnotation(ctx, ann, styleOptions, ann.id === selectedAnnotationId);
+      drawAnnotation(ctx, ann, styleOptions);
+      if (ann.id === selectedAnnotationId) {
+        drawHandle(ctx, ann.p1, 'point');
+        drawHandle(ctx, ann.p2, 'point');
+        drawHandle(ctx, ann.labelPos, 'label');
+      }
     });
 
     if (isDrawingMode) {
@@ -118,27 +123,6 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
 
     ctx.restore();
   };
-
-  const drawAnnotation = (ctx: CanvasRenderingContext2D, ann: Annotation, styles: StyleOptions, isSelected: boolean) => {
-      const color = ann.lineColor || styles.lineColor;
-      ctx.strokeStyle = color;
-      ctx.lineWidth = styles.strokeWidth;
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.moveTo(ann.p1.x, ann.p1.y);
-      ctx.lineTo(ann.p2.x, ann.p2.y);
-      ctx.stroke();
-
-      drawTick(ctx, ann.p1, ann.p2, styles.arrowheadSize);
-      drawTick(ctx, ann.p2, ann.p1, styles.arrowheadSize);
-      drawLabel(ctx, ann, styles);
-
-      if (isSelected) {
-        drawHandle(ctx, ann.p1, 'point');
-        drawHandle(ctx, ann.p2, 'point');
-        drawHandle(ctx, ann.labelPos, 'label');
-      }
-  }
   
   const drawDrawingPreview = (ctx: CanvasRenderingContext2D) => {
     ctx.save();
@@ -165,50 +149,11 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
         const c2 = drawingState.points[1];
         const { p1, p2 } = calculateAnnotationPoints(c1, c2, mousePos);
         const previewAnn: Annotation = { id: '', label: '', valueText: '??', p1, p2, ext1: c1, ext2: c2, labelPos: {x:0, y:0} };
-        drawAnnotation(ctx, previewAnn, styleOptions, false);
+        drawAnnotation(ctx, previewAnn, styleOptions);
       }
     }
     ctx.restore();
   }
-
-  const drawTick = (ctx: CanvasRenderingContext2D, from: Point, to: Point, size: number) => {
-    const angle = Math.atan2(to.y - from.y, to.x - from.x);
-    ctx.save();
-    ctx.translate(to.x, to.y);
-    ctx.rotate(angle);
-    ctx.beginPath();
-    ctx.moveTo(0, -size / 2);
-    ctx.lineTo(0, size / 2);
-    ctx.stroke();
-    ctx.restore();
-  };
-
-  const drawLabel = (ctx: CanvasRenderingContext2D, ann: Annotation, styles: StyleOptions) => {
-    ctx.font = `${styles.fontSize}px ${styles.fontFamily}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    
-    const textToDisplay = `${ann.valueText}"`;
-    const textMetrics = ctx.measureText(textToDisplay);
-    const boxWidth = textMetrics.width + styles.labelBoxPadding * 2;
-    const boxHeight = styles.fontSize + styles.labelBoxPadding * 2;
-    const labelX = ann.labelPos.x;
-    const labelY = ann.labelPos.y;
-
-    if (styles.showLabelBox) {
-        ctx.fillStyle = styles.labelBoxColor;
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
-        ctx.shadowBlur = 4;
-        ctx.shadowOffsetY = 2;
-        ctx.beginPath();
-        ctx.roundRect(labelX - boxWidth / 2, labelY - boxHeight / 2, boxWidth, boxHeight, 8);
-        ctx.fill();
-        ctx.shadowColor = 'transparent';
-    }
-
-    ctx.fillStyle = styles.textColor;
-    ctx.fillText(textToDisplay, labelX, labelY);
-  };
   
   const drawHandle = (ctx: CanvasRenderingContext2D, pos: Point, type: 'point' | 'label' = 'point') => {
     ctx.beginPath();
@@ -364,48 +309,6 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
 
   const handleMouseUp = () => setDragging(null);
   
-  const handleDownload = async (quality: number) => {
-    const tempCanvas = document.createElement('canvas');
-    const tempCtx = tempCanvas.getContext('2d');
-    if (!tempCtx) return;
-
-    tempCanvas.width = image.naturalWidth;
-    tempCanvas.height = image.naturalHeight;
-    const scale = image.naturalWidth / canvasSize.width;
-    tempCtx.drawImage(image, 0, 0);
-    
-    const scaledStyles = {
-        ...styleOptions,
-        strokeWidth: styleOptions.strokeWidth * scale,
-        arrowheadSize: styleOptions.arrowheadSize * scale,
-        fontSize: styleOptions.fontSize * scale,
-        labelBoxPadding: styleOptions.labelBoxPadding * scale,
-    };
-
-    annotations.forEach(ann => {
-        const scaledAnn = {
-            ...ann,
-            p1: { x: ann.p1.x * scale, y: ann.p1.y * scale },
-            p2: { x: ann.p2.x * scale, y: ann.p2.y * scale },
-            labelPos: { x: ann.labelPos.x * scale, y: ann.labelPos.y * scale },
-            ext1: ann.ext1 ? { x: ann.ext1.x * scale, y: ann.ext1.y * scale } : undefined,
-            ext2: ann.ext2 ? { x: ann.ext2.x * scale, y: ann.ext2.y * scale } : undefined,
-        };
-        drawAnnotation(tempCtx, scaledAnn, scaledStyles, false);
-    });
-
-    const link = document.createElement('a');
-    let baseName = 'annotated-image';
-    if (originalFileName) {
-        const lastDotIndex = originalFileName.lastIndexOf('.');
-        baseName = lastDotIndex === -1 ? originalFileName : originalFileName.substring(0, lastDotIndex);
-    }
-    const qualitySuffix = Math.round(quality * 100);
-    link.download = `${baseName}_${qualitySuffix}.jpg`;
-    link.href = tempCanvas.toDataURL('image/jpeg', quality);
-    link.click();
-  };
-
   return (
     <div className='relative w-full h-full flex items-center justify-center'>
        <canvas
@@ -420,9 +323,6 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
         className="bg-white shadow-lg"
       />
       {isDrawingMode && <DrawingInstructions step={drawingState.step} />}
-      <div className="absolute bottom-2 right-2 flex space-x-2">
-         <button onClick={() => handleDownload(1.0)} className="px-3 py-1.5 text-xs font-medium text-white bg-gray-700 border border-transparent rounded-md shadow-sm hover:bg-gray-800">Download JPG (100%)</button>
-      </div>
     </div>
   );
 };
