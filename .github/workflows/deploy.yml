@@ -24,7 +24,11 @@ jobs:
           cache: 'npm'
           
       - name: Install dependencies
-        run: npm ci
+        run: |
+          echo "Checking package files..."
+          ls -la package*
+          echo "Installing dependencies..."
+          npm install
         
       - name: Build
         run: npm run build
