@@ -63,6 +63,7 @@ const App: React.FC = () => {
   const [zoom, setZoom] = useState(1);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
+  const [sidebarText, setSidebarText] = useState('');
   
   const { state: annotations, setState: setAnnotations, undo, redo, canUndo, canRedo } = useHistory<Annotation[]>([]);
   
@@ -210,6 +211,18 @@ const App: React.FC = () => {
           <div className="bg-white p-4 rounded-lg shadow-md">
             <h2 className="text-lg font-semibold text-gray-700 mb-2">1. Upload Image</h2>
             <ImageUploader onImageUpload={handleImageUpload} />
+          </div>
+          <div className="bg-white p-4 rounded-lg shadow-md">
+            <label htmlFor="sidebar-text-input" className="block text-lg font-semibold text-gray-700 mb-2">
+              2. Notes
+            </label>
+            <textarea
+              id="sidebar-text-input"
+              value={sidebarText}
+              onChange={(event) => setSidebarText(event.target.value)}
+              placeholder="Paste or type any notes here..."
+              className="w-full h-32 p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-gray-700 resize-none"
+            />
           </div>
           <Instructions />
         </div>
