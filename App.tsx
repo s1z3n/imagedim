@@ -10,29 +10,29 @@ import CanvasArea from './components/CanvasArea';
 import { drawAnnotation as drawAnnotationOnCanvas } from './utils/imageUtils';
 
 const calculateFitToScreenSize = (img: HTMLImageElement, container: HTMLElement): { width: number; height: number } => {
-    const containerWidth = container.clientWidth;
-    const containerHeight = container.clientHeight;
+  const containerWidth = container.clientWidth;
+  const containerHeight = container.clientHeight;
 
-    if (containerWidth === 0 || containerHeight === 0 || !img.naturalWidth || !img.naturalHeight) {
-        return { width: 0, height: 0 };
-    }
+  if (containerWidth === 0 || containerHeight === 0 || !img.naturalWidth || !img.naturalHeight) {
+    return { width: 0, height: 0 };
+  }
 
-    const imageAspectRatio = img.naturalWidth / img.naturalHeight;
-    const containerAspectRatio = containerWidth / containerHeight;
+  const imageAspectRatio = img.naturalWidth / img.naturalHeight;
+  const containerAspectRatio = containerWidth / containerHeight;
 
-    let finalWidth: number, finalHeight: number;
+  let finalWidth: number, finalHeight: number;
 
-    if (imageAspectRatio > containerAspectRatio) {
-        // Image is wider than container, so fit to width
-        finalWidth = containerWidth;
-        finalHeight = containerWidth / imageAspectRatio;
-    } else {
-        // Image is taller than container, so fit to height
-        finalHeight = containerHeight;
-        finalWidth = containerHeight * imageAspectRatio;
-    }
+  if (imageAspectRatio > containerAspectRatio) {
+    // Image is wider than container, so fit to width
+    finalWidth = containerWidth;
+    finalHeight = containerWidth / imageAspectRatio;
+  } else {
+    // Image is taller than container, so fit to height
+    finalHeight = containerHeight;
+    finalWidth = containerHeight * imageAspectRatio;
+  }
 
-    return { width: finalWidth, height: finalHeight };
+  return { width: finalWidth, height: finalHeight };
 };
 
 const Instructions: React.FC = () => (
@@ -42,12 +42,12 @@ const Instructions: React.FC = () => (
       <li>Upload your product image using the panel above.</li>
       <li>Click <span className="font-semibold text-indigo-600">"Add Dimension"</span> in the header to enter drawing mode.</li>
       <li>Click three times to define a dimension:
-          <ul className="list-disc list-inside ml-4 mt-1">
-              <li>First click: Start point.</li>
-              <li>Second click: End point.</li>
-              <li>Third click: Set distance from object.</li>
-              <li className="font-semibold text-indigo-600">An input will appear on the line to enter the value.</li>
-          </ul>
+        <ul className="list-disc list-inside ml-4 mt-1">
+          <li>First click: Start point.</li>
+          <li>Second click: End point.</li>
+          <li>Third click: Set distance from object.</li>
+          <li className="font-semibold text-indigo-600">An input will appear on the line to enter the value.</li>
+        </ul>
       </li>
       <li>Use the controls on the right to adjust styles and zoom.</li>
       <li>Click on any annotation to select, move, or resize it. Double-click a label to edit it.</li>
@@ -64,14 +64,15 @@ const App: React.FC = () => {
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
   const [sidebarText, setSidebarText] = useState('');
-  
+
   const { state: annotations, setState: setAnnotations, undo, redo, canUndo, canRedo } = useHistory<Annotation[]>([]);
-  
+
   const [isDrawingMode, setIsDrawingMode] = useState(false);
   const [drawingState, setDrawingState] = useState<{ step: number; points: Point[] }>({ step: 0, points: [] });
 
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
+  const prevCanvasSizeRef = useRef(canvasSize);
 
   const toggleDrawingMode = useCallback((force?: boolean) => {
     setIsDrawingMode(prev => {
@@ -89,14 +90,14 @@ const App: React.FC = () => {
     const resizeObserver = new ResizeObserver(entries => {
       if (entries[0] && canvasContainerRef.current) {
         const container = canvasContainerRef.current;
-        if(image) {
+        if (image) {
           const newSize = calculateFitToScreenSize(image, container);
           if (newSize.width > 0) {
             setCanvasSize(newSize);
           }
         } else {
-            const { width, height } = entries[0].contentRect;
-            setCanvasSize({ width, height });
+          const { width, height } = entries[0].contentRect;
+          setCanvasSize({ width, height });
         }
       }
     });
@@ -104,9 +105,36 @@ const App: React.FC = () => {
     if (canvasContainerRef.current) {
       resizeObserver.observe(canvasContainerRef.current);
     }
-    
+
     return () => resizeObserver.disconnect();
   }, [image]);
+
+  // Rescale annotations proportionally when canvas size changes (e.g. different-resolution image)
+  useEffect(() => {
+    const prev = prevCanvasSizeRef.current;
+    if (
+      prev.width > 0 && prev.height > 0 &&
+      canvasSize.width > 0 && canvasSize.height > 0 &&
+      (prev.width !== canvasSize.width || prev.height !== canvasSize.height) &&
+      annotations.length > 0
+    ) {
+      const sx = canvasSize.width / prev.width;
+      const sy = canvasSize.height / prev.height;
+      const scalePoint = (p: Point) => ({ x: p.x * sx, y: p.y * sy });
+      setAnnotations(
+        annotations.map(a => ({
+          ...a,
+          p1: scalePoint(a.p1),
+          p2: scalePoint(a.p2),
+          labelPos: scalePoint(a.labelPos),
+          ext1: a.ext1 ? scalePoint(a.ext1) : undefined,
+          ext2: a.ext2 ? scalePoint(a.ext2) : undefined,
+        })),
+        true
+      );
+    }
+    prevCanvasSizeRef.current = canvasSize;
+  }, [canvasSize]);
 
 
   const handleImageUpload = (file: File) => {
@@ -116,7 +144,6 @@ const App: React.FC = () => {
       img.onload = () => {
         setImage(img);
         setOriginalFileName(file.name);
-        setAnnotations([], true);
         setZoom(1); // Reset zoom to 100% (which is now fit-to-screen)
         toggleDrawingMode(true);
       };
@@ -124,7 +151,7 @@ const App: React.FC = () => {
     };
     reader.readAsDataURL(file);
   };
-  
+
   const handleClear = () => {
     setAnnotations([]);
     setSelectedAnnotationId(null);
@@ -134,7 +161,7 @@ const App: React.FC = () => {
   const addAnnotation = useCallback((annotation: Annotation) => {
     setAnnotations(prev => [...prev, annotation]);
   }, [setAnnotations]);
-  
+
   const updateAnnotation = (updatedAnnotation: Annotation) => {
     setAnnotations(annotations.map(a => a.id === updatedAnnotation.id ? updatedAnnotation : a), true);
   };
@@ -160,32 +187,32 @@ const App: React.FC = () => {
     tempCanvas.height = image.naturalHeight;
     const scale = image.naturalWidth / canvasSize.width;
     tempCtx.drawImage(image, 0, 0);
-    
+
     const scaledStyles = {
-        ...styleOptions,
-        strokeWidth: styleOptions.strokeWidth * scale,
-        arrowheadSize: styleOptions.arrowheadSize * scale,
-        fontSize: styleOptions.fontSize * scale,
-        labelBoxPadding: styleOptions.labelBoxPadding * scale,
+      ...styleOptions,
+      strokeWidth: styleOptions.strokeWidth * scale,
+      arrowheadSize: styleOptions.arrowheadSize * scale,
+      fontSize: styleOptions.fontSize * scale,
+      labelBoxPadding: styleOptions.labelBoxPadding * scale,
     };
 
     annotations.forEach(ann => {
-        const scaledAnn = {
-            ...ann,
-            p1: { x: ann.p1.x * scale, y: ann.p1.y * scale },
-            p2: { x: ann.p2.x * scale, y: ann.p2.y * scale },
-            labelPos: { x: ann.labelPos.x * scale, y: ann.labelPos.y * scale },
-            ext1: ann.ext1 ? { x: ann.ext1.x * scale, y: ann.ext1.y * scale } : undefined,
-            ext2: ann.ext2 ? { x: ann.ext2.x * scale, y: ann.ext2.y * scale } : undefined,
-        };
-        drawAnnotationOnCanvas(tempCtx, scaledAnn, scaledStyles);
+      const scaledAnn = {
+        ...ann,
+        p1: { x: ann.p1.x * scale, y: ann.p1.y * scale },
+        p2: { x: ann.p2.x * scale, y: ann.p2.y * scale },
+        labelPos: { x: ann.labelPos.x * scale, y: ann.labelPos.y * scale },
+        ext1: ann.ext1 ? { x: ann.ext1.x * scale, y: ann.ext1.y * scale } : undefined,
+        ext2: ann.ext2 ? { x: ann.ext2.x * scale, y: ann.ext2.y * scale } : undefined,
+      };
+      drawAnnotationOnCanvas(tempCtx, scaledAnn, scaledStyles);
     });
 
     const link = document.createElement('a');
     let baseName = 'annotated-image';
     if (originalFileName) {
-        const lastDotIndex = originalFileName.lastIndexOf('.');
-        baseName = lastDotIndex === -1 ? originalFileName : originalFileName.substring(0, lastDotIndex);
+      const lastDotIndex = originalFileName.lastIndexOf('.');
+      baseName = lastDotIndex === -1 ? originalFileName : originalFileName.substring(0, lastDotIndex);
     }
     const qualitySuffix = Math.round(quality * 100);
     link.download = `${baseName}_${qualitySuffix}.jpg`;
@@ -197,7 +224,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col font-sans">
-      <Header 
+      <Header
         onClear={handleClear}
         canUndo={canUndo}
         canRedo={canRedo}
@@ -226,10 +253,10 @@ const App: React.FC = () => {
           </div>
           <Instructions />
         </div>
-        
-        <div className="flex-grow flex flex-col items-center justify-center bg-gray-200 rounded-lg shadow-inner overflow-hidden" ref={canvasContainerRef}>
+
+        <div className="flex-grow flex flex-col items-center justify-center bg-gray-200 rounded-lg shadow-inner overflow-auto" ref={canvasContainerRef}>
           {image ? (
-             <CanvasArea
+            <CanvasArea
               image={image}
               annotations={annotations}
               styleOptions={styleOptions}

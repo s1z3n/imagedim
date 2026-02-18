@@ -4,6 +4,8 @@ export type Point = {
   y: number;
 };
 
+export type LineStyle = 'solid' | 'dashed' | 'dotted';
+
 export interface Annotation {
   id: string;
   label: string; // e.g., "Overall Height: 34.5"
@@ -14,6 +16,7 @@ export interface Annotation {
   ext1?: Point; // Extension line 1 start (on product)
   ext2?: Point; // Extension line 2 start (on product)
   lineColor?: string;
+  lineStyle?: LineStyle;
 }
 
 export interface StyleOptions {

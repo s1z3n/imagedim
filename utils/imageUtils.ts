@@ -16,7 +16,7 @@ export const getLabelBoundingBox = (ctx: CanvasRenderingContext2D, ann: Annotati
     ctx.font = `${styles.fontSize}px ${styles.fontFamily}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    
+
     const textToDisplay = `${ann.valueText}"`;
     const textMetrics = ctx.measureText(textToDisplay);
     const boxWidth = textMetrics.width + styles.labelBoxPadding * 2;
@@ -33,7 +33,7 @@ const drawLabel = (ctx: CanvasRenderingContext2D, ann: Annotation, styles: Style
     ctx.font = `${styles.fontSize}px ${styles.fontFamily}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    
+
     const textToDisplay = `${ann.valueText}"`;
     let labelX = ann.labelPos.x;
     let labelY = ann.labelPos.y;
@@ -55,15 +55,15 @@ const drawLabel = (ctx: CanvasRenderingContext2D, ann: Annotation, styles: Style
         // Offset the label position when there's no box
         const dx = ann.p2.x - ann.p1.x;
         const dy = ann.p2.y - ann.p1.y;
-        
+
         const length = Math.hypot(dx, dy);
         if (length > 1e-6) {
             const nx = -dy / length; // normalized normal vector
             const ny = dx / length;
-            
+
             // Offset by half font size + a small gap
             const offset = styles.fontSize * 0.75;
-            
+
             labelX += nx * offset;
             labelY += ny * offset;
         }
@@ -79,15 +79,29 @@ export const drawAnnotation = (ctx: CanvasRenderingContext2D, ann: Annotation, s
     ctx.strokeStyle = color;
     ctx.lineWidth = styles.strokeWidth;
     ctx.fillStyle = color;
+
+    // Apply per-annotation line dash style
+    const lineStyle = ann.lineStyle || 'solid';
+    if (lineStyle === 'dashed') {
+        ctx.setLineDash([8, 6]);
+    } else if (lineStyle === 'dotted') {
+        ctx.setLineDash([2, 4]);
+    } else {
+        ctx.setLineDash([]);
+    }
+
     ctx.beginPath();
     ctx.moveTo(ann.p1.x, ann.p1.y);
     ctx.lineTo(ann.p2.x, ann.p2.y);
     ctx.stroke();
 
+    // Reset dash so ticks and labels are always solid
+    ctx.setLineDash([]);
+
     drawTick(ctx, ann.p1, ann.p2, styles.arrowheadSize);
     drawTick(ctx, ann.p2, ann.p1, styles.arrowheadSize);
-    
+
     if (!isEditing) {
-      drawLabel(ctx, ann, styles);
+        drawLabel(ctx, ann, styles);
     }
 }
