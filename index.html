@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Dimension Annotator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+    <style>
+      body { font-family: 'Inter', sans-serif; }
+      /* Custom slider thumb style to match theme color */
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        margin-top: -4px; /* Vertically center 16px thumb on 8px track (h-2) */
+        background-color: #4F46E5; /* Tailwind's indigo-600 */
+        height: 16px;
+        width: 16px;
+        border-radius: 9999px;
+        cursor: pointer;
+      }
+      input[type="range"]::-moz-range-thumb {
+        background-color: #4F46E5; /* Tailwind's indigo-600 */
+        height: 16px;
+        width: 16px;
+        border-radius: 9999px;
+        cursor: pointer;
+        border: none;
+      }
+    </style>
+
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.1.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
+    "react/": "https://aistudiocdn.com/react@^19.1.1/",
+    "vite": "https://aistudiocdn.com/vite@^7.1.7",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.0.3"
+  }
+}
+</script>
+  <script type="module" crossorigin src="/imagedim/assets/index-BlL1Rgrw.js"></script>
+</head>
+  <body class="bg-gray-100">
+    <div id="root"></div>
+  </body>
+</html>
