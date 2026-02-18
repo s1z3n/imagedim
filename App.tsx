@@ -227,7 +227,7 @@ const App: React.FC = () => {
       const lastDotIndex = originalFileName.lastIndexOf('.');
       baseName = lastDotIndex === -1 ? originalFileName : originalFileName.substring(0, lastDotIndex);
     }
-    const qualitySuffix = Math.round(quality * 100);
+    const qualitySuffix = 100; // Always suffix with 100 as requested
     link.download = `${baseName}_${qualitySuffix}.jpg`;
     link.href = tempCanvas.toDataURL('image/jpeg', quality);
     link.click();
