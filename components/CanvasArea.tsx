@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { Annotation, StyleOptions, Point, DraggablePart } from '../types';
 import { drawAnnotation, getLabelBoundingBox } from '../utils/imageUtils';
 
@@ -10,6 +10,9 @@ interface CanvasAreaProps {
   deleteAnnotation: (id: string) => void;
   selectedAnnotationId: string | null;
   setSelectedAnnotationId: (id: string | null) => void;
+  zoom: number;
+  setZoom: (zoom: number) => void;
+  containerRef: React.RefObject<HTMLDivElement>;
   canvasSize: { width: number; height: number };
   isDrawingMode: boolean;
   drawingState: { step: number; points: Point[] };
@@ -80,7 +83,8 @@ const DrawingInstructions: React.FC<{ step: number }> = ({ step }) => {
 
 const CanvasArea: React.FC<CanvasAreaProps> = ({
   image, annotations, styleOptions, updateAnnotation, deleteAnnotation,
-  selectedAnnotationId, setSelectedAnnotationId, canvasSize, isDrawingMode,
+  selectedAnnotationId, setSelectedAnnotationId, zoom, setZoom,
+  containerRef, canvasSize, isDrawingMode,
   drawingState, setDrawingState, addAnnotation, onToggleDrawingMode,
   editingAnnotationId, setEditingAnnotationId
 }) => {
@@ -97,8 +101,8 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
     return {
-      x: (e.clientX - rect.left),
-      y: (e.clientY - rect.top),
+      x: (e.clientX - rect.left) / zoom,
+      y: (e.clientY - rect.top) / zoom,
     };
   };
 
@@ -391,20 +395,40 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
     }
   };
 
+  // Ctrl+wheel zoom
+  const handleWheel = useCallback((e: WheelEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? -0.1 : 0.1;
+      setZoom(Math.max(0.25, Math.min(3, Math.round((zoom + delta) * 100) / 100)));
+    }
+  }, [zoom, setZoom]);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [handleWheel, containerRef]);
+
+
+
   return (
-    <div style={{ width: canvasSize.width, height: canvasSize.height, flexShrink: 0 }}>
+    <div style={{ width: canvasSize.width * zoom, height: canvasSize.height * zoom, flexShrink: 0 }}>
       <div
         className='relative'
         style={{
           width: canvasSize.width,
           height: canvasSize.height,
+          transform: `scale(${zoom})`,
+          transformOrigin: 'top left',
         }}
       >
         <canvas
           ref={canvasRef}
           width={canvasSize.width}
           height={canvasSize.height}
-          style={{ width: canvasSize.width, height: canvasSize.height, cursor: isDrawingMode ? 'crosshair' : (dragging ? 'grabbing' : 'grab') }}
+          style={{ width: canvasSize.width, height: canvasSize.height, cursor: isDrawingMode ? 'crosshair' : (dragging ? 'grabbing' : 'default') }}
           onMouseDown={isDrawingMode ? handleDrawingMouseDown : handleSelectMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}

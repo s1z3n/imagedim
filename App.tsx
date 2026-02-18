@@ -7,6 +7,7 @@ import Header from './components/Header';
 import ImageUploader from './components/ImageUploader';
 import ControlsPanel from './components/ControlsPanel';
 import CanvasArea from './components/CanvasArea';
+import ZoomToolbar from './components/ZoomToolbar';
 import { drawAnnotation as drawAnnotationOnCanvas } from './utils/imageUtils';
 
 const calculateFitToScreenSize = (img: HTMLImageElement, container: HTMLElement): { width: number; height: number } => {
@@ -60,7 +61,7 @@ const App: React.FC = () => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [originalFileName, setOriginalFileName] = useState<string | null>(null);
   const [styleOptions, setStyleOptions] = useLocalStorage<StyleOptions>('styleOptions', DEFAULT_STYLE_OPTIONS);
-
+  const [zoom, setZoom] = useState(1);
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
   const [sidebarText, setSidebarText] = useState('');
@@ -266,28 +267,40 @@ const App: React.FC = () => {
           <Instructions />
         </div>
 
-        <div className="flex-grow flex flex-col items-center justify-center bg-gray-200 rounded-lg shadow-inner overflow-auto" ref={canvasContainerRef}>
-          {image ? (
-            <CanvasArea
-              image={image}
-              annotations={annotations}
-              styleOptions={styleOptions}
-              updateAnnotation={updateAnnotation}
-              deleteAnnotation={deleteAnnotation}
-              selectedAnnotationId={selectedAnnotationId}
-              setSelectedAnnotationId={setSelectedAnnotationId}
-
-              canvasSize={canvasSize}
-              isDrawingMode={isDrawingMode}
-              drawingState={drawingState}
-              setDrawingState={setDrawingState}
-              addAnnotation={addAnnotation}
-              onToggleDrawingMode={toggleDrawingMode}
-              editingAnnotationId={editingAnnotationId}
-              setEditingAnnotationId={setEditingAnnotationId}
-            />
-          ) : (
-            <div className="text-gray-500">Please upload an image to begin</div>
+        <div className="flex-grow flex flex-col relative">
+          <div className="flex-grow flex flex-col items-center justify-center bg-gray-200 rounded-lg shadow-inner overflow-auto" ref={canvasContainerRef}>
+            {image ? (
+              <CanvasArea
+                image={image}
+                annotations={annotations}
+                styleOptions={styleOptions}
+                updateAnnotation={updateAnnotation}
+                deleteAnnotation={deleteAnnotation}
+                selectedAnnotationId={selectedAnnotationId}
+                setSelectedAnnotationId={setSelectedAnnotationId}
+                zoom={zoom}
+                setZoom={setZoom}
+                containerRef={canvasContainerRef}
+                canvasSize={canvasSize}
+                isDrawingMode={isDrawingMode}
+                drawingState={drawingState}
+                setDrawingState={setDrawingState}
+                addAnnotation={addAnnotation}
+                onToggleDrawingMode={toggleDrawingMode}
+                editingAnnotationId={editingAnnotationId}
+                setEditingAnnotationId={setEditingAnnotationId}
+              />
+            ) : (
+              <div className="text-gray-500">Please upload an image to begin</div>
+            )}
+          </div>
+          {image && (
+            <div className="absolute bottom-3 right-3 z-20">
+              <ZoomToolbar
+                zoom={zoom}
+                setZoom={setZoom}
+              />
+            </div>
           )}
         </div>
 
