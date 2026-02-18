@@ -10,7 +10,6 @@ interface CanvasAreaProps {
   deleteAnnotation: (id: string) => void;
   selectedAnnotationId: string | null;
   setSelectedAnnotationId: (id: string | null) => void;
-  zoom: number;
   canvasSize: { width: number; height: number };
   isDrawingMode: boolean;
   drawingState: { step: number; points: Point[] };
@@ -81,7 +80,7 @@ const DrawingInstructions: React.FC<{ step: number }> = ({ step }) => {
 
 const CanvasArea: React.FC<CanvasAreaProps> = ({
   image, annotations, styleOptions, updateAnnotation, deleteAnnotation,
-  selectedAnnotationId, setSelectedAnnotationId, zoom, canvasSize, isDrawingMode,
+  selectedAnnotationId, setSelectedAnnotationId, canvasSize, isDrawingMode,
   drawingState, setDrawingState, addAnnotation, onToggleDrawingMode,
   editingAnnotationId, setEditingAnnotationId
 }) => {
@@ -98,8 +97,8 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
     return {
-      x: (e.clientX - rect.left) / zoom,
-      y: (e.clientY - rect.top) / zoom,
+      x: (e.clientX - rect.left),
+      y: (e.clientY - rect.top),
     };
   };
 
@@ -201,7 +200,7 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
         inlineInputRef.current.select();
       }
     }
-  }, [editingAnnotationId, annotations, zoom, styleOptions.fontSize]);
+  }, [editingAnnotationId, annotations, styleOptions.fontSize]);
 
   useEffect(draw, [image, annotations, styleOptions, selectedAnnotationId, canvasSize, isDrawingMode, drawingState, mousePos, editingAnnotationId]);
 
@@ -393,14 +392,12 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
   };
 
   return (
-    <div style={{ width: canvasSize.width * zoom, height: canvasSize.height * zoom, flexShrink: 0 }}>
+    <div style={{ width: canvasSize.width, height: canvasSize.height, flexShrink: 0 }}>
       <div
         className='relative'
         style={{
           width: canvasSize.width,
           height: canvasSize.height,
-          transform: `scale(${zoom})`,
-          transformOrigin: 'top left',
         }}
       >
         <canvas

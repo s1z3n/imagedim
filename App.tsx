@@ -49,7 +49,7 @@ const Instructions: React.FC = () => (
           <li className="font-semibold text-indigo-600">An input will appear on the line to enter the value.</li>
         </ul>
       </li>
-      <li>Use the controls on the right to adjust styles and zoom.</li>
+      <li>Use the controls on the right to adjust styles.</li>
       <li>Click on any annotation to select, move, or resize it. Double-click a label to edit it.</li>
       <li>Click <span className="font-semibold text-gray-800">"Download JPG"</span> when you're finished.</li>
     </ol>
@@ -60,7 +60,7 @@ const App: React.FC = () => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [originalFileName, setOriginalFileName] = useState<string | null>(null);
   const [styleOptions, setStyleOptions] = useLocalStorage<StyleOptions>('styleOptions', DEFAULT_STYLE_OPTIONS);
-  const [zoom, setZoom] = useState(1);
+
   const [selectedAnnotationId, setSelectedAnnotationId] = useState<string | null>(null);
   const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
   const [sidebarText, setSidebarText] = useState('');
@@ -86,27 +86,40 @@ const App: React.FC = () => {
     });
   }, []);
 
+  // Initial sizing: compute canvas size once when image loads
   useEffect(() => {
-    const resizeObserver = new ResizeObserver(entries => {
-      if (entries[0] && canvasContainerRef.current) {
-        const container = canvasContainerRef.current;
-        if (image) {
-          const newSize = calculateFitToScreenSize(image, container);
-          if (newSize.width > 0) {
-            setCanvasSize(newSize);
-          }
-        } else {
-          const { width, height } = entries[0].contentRect;
-          setCanvasSize({ width, height });
-        }
+    if (!image || !canvasContainerRef.current) return;
+
+    const container = canvasContainerRef.current;
+
+    // Use ResizeObserver to wait for the container to have a valid size,
+    // then compute canvas size once and disconnect.
+    const resizeObserver = new ResizeObserver(() => {
+      const newSize = calculateFitToScreenSize(image, container);
+      if (newSize.width > 0) {
+        setCanvasSize(newSize);
+        resizeObserver.disconnect(); // Only need the first valid measurement
       }
     });
 
-    if (canvasContainerRef.current) {
-      resizeObserver.observe(canvasContainerRef.current);
-    }
-
+    resizeObserver.observe(container);
     return () => resizeObserver.disconnect();
+  }, [image]);
+
+  // Window resize: recalculate canvas size when browser window is resized
+  useEffect(() => {
+    if (!image || !canvasContainerRef.current) return;
+
+    const handleWindowResize = () => {
+      if (!canvasContainerRef.current || !image) return;
+      const newSize = calculateFitToScreenSize(image, canvasContainerRef.current);
+      if (newSize.width > 0) {
+        setCanvasSize(newSize);
+      }
+    };
+
+    window.addEventListener('resize', handleWindowResize);
+    return () => window.removeEventListener('resize', handleWindowResize);
   }, [image]);
 
   // Rescale annotations proportionally when canvas size changes (e.g. different-resolution image)
@@ -144,7 +157,6 @@ const App: React.FC = () => {
       img.onload = () => {
         setImage(img);
         setOriginalFileName(file.name);
-        setZoom(1); // Reset zoom to 100% (which is now fit-to-screen)
         toggleDrawingMode(true);
       };
       img.src = e.target?.result as string;
@@ -264,7 +276,7 @@ const App: React.FC = () => {
               deleteAnnotation={deleteAnnotation}
               selectedAnnotationId={selectedAnnotationId}
               setSelectedAnnotationId={setSelectedAnnotationId}
-              zoom={zoom}
+
               canvasSize={canvasSize}
               isDrawingMode={isDrawingMode}
               drawingState={drawingState}
@@ -282,8 +294,6 @@ const App: React.FC = () => {
         <ControlsPanel
           styleOptions={styleOptions}
           setStyleOptions={setStyleOptions}
-          zoom={zoom}
-          setZoom={setZoom}
           selectedAnnotation={selectedAnnotation}
           updateAnnotation={updateAnnotation}
           onDownload={handleDownload}
